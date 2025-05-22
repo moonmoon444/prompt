@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>블랙잭 게임</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background: radial-gradient(ellipse at center, #145a32 0%, #0b3d1b 100%);
+      color: #fff;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1, h2 {
+      margin-top: 20px;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .hand {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    img.card {
+      width: 80px;
+      height: auto;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+      border-radius: 6px;
+    }
+
+    .controls, .betting {
+      margin: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #f39c12;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    button:hover {
+      background: #e67e22;
+    }
+
+    #result {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 15px;
+      color: #f1c40f;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    select {
+      padding: 5px 10px;
+      font-size: 16px;
+      margin-left: 10px;
+    }
+
+    #chips {
+      font-size: 18px;
+      margin: 10px;
+      color: #ecf0f1;
+    }
+  </style>
+</head>
+<body>
+  <h1>블랙잭 게임</h1>
+
+  <div id="chips">💰 칩: 1000</div>
+
+  <div class="betting">
+    <label for="bet">베팅 금액:</label>
+    <select id="bet">
+      <option value="50">50</option>
+      <option value="100">100</option>
+      <option value="200">200</option>
+    </select>
+  </div>
+
+  <h2>플레이어</h2>
+  <div id="player-hand" class="hand"></div>
+  <h2>딜러</h2>
+  <div id="dealer-hand" class="hand"></div>
+  <p id="result"></p>
+
+  <div class="controls">
+    <button onclick="hit()">Hit</button>
+    <button onclick="stand()">Stand</button>
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+
+  <script>
+    let deck = [];
+    let player = [];
+    let dealer = [];
+    let gameOver = false;
+    let playerChips = 1000;
+    let currentBet = 50;
+    let betPlaced = false;
+
+    function createDeck() {
+      const suits = ['S', 'H', 'D', 'C'];
+      const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+      deck = [];
+      for (let suit of suits) {
+        for (let value of values) {
+          deck.push({ value, suit });
+        }
+      }
+      deck = deck.sort(() => Math.random() - 0.5);
+    }
+
+    function getCardValue(card) {
+      if (['J', 'Q', 'K'].includes(card.value)) return 10;
+      if (card.value === 'A') return 11;
+      return parseInt(card.value);
+    }
+
+    function calculateHandValue(hand) {
+      let value = 0;
+      let aceCount = 0;
+      for (let card of hand) {
+        value += getCardValue(card);
+        if (card.value === 'A') aceCount++;
+      }
+      while (value > 21 && aceCount > 0) {
+        value -= 10;
+        aceCount--;
+      }
+      return value;
+    }
+
+    function getCardImage(card) {
+      return `https://deckofcardsapi.com/static/img/${card.value}${card.suit}.png`;
+    }
+
+    function renderHand(id, hand, hideFirstCard = false) {
+      const container = document.getElementById(id);
+      container.innerHTML = '';
+      hand.forEach((card, index) => {
+        const img = document.createElement('img');
+        img.className = 'card';
+        img.src = (hideFirstCard && index === 0)
+          ? 'https://deckofcardsapi.com/static/img/back.png'
+          : getCardImage(card);
+        container.appendChild(img);
+      });
+    }
+
+    function updateChipsDisplay() {
+      document.getElementById("chips").textContent = `💰 칩: ${playerChips}`;
+    }
+
+    function startGame() {
+      const betSelect = document.getElementById("bet");
+      currentBet = parseInt(betSelect.value);
+      if (playerChips < currentBet) {
+        alert("베팅할 칩이 부족해요!");
+        return;
+      }
+
+      createDeck();
+      player = [deck.pop(), deck.pop()];
+      dealer = [deck.pop(), deck.pop()];
+      gameOver = false;
+      betPlaced = true;
+      document.getElementById("result").textContent = '';
+      renderHand('player-hand', player);
+      renderHand('dealer-hand', dealer, true);
+      updateChipsDisplay();
+    }
+
+    function hit() {
+      if (gameOver || !betPlaced) return;
+      player.push(deck.pop());
+      renderHand('player-hand', player);
+      if (calculateHandValue(player) > 21) endGame();
+    }
+
+    function stand() {
+      if (gameOver || !betPlaced) return;
+      while (calculateHandValue(dealer) < 17) {
+        dealer.push(deck.pop());
+      }
+      endGame();
+    }
+
+    function endGame() {
+      gameOver = true;
+      betPlaced = false;
+      renderHand('dealer-hand', dealer);
+      const playerVal = calculateHandValue(player);
+      const dealerVal = calculateHandValue(dealer);
+      let result = '';
+
+      if (playerVal > 21) {
+        result = '플레이어 버스트! 딜러 승!';
+        playerChips -= currentBet;
+      } else if (dealerVal > 21) {
+        result = '딜러 버스트! 플레이어 승!';
+        playerChips += currentBet;
+      } else if (playerVal > dealerVal) {
+        result = '플레이어 승!';
+        playerChips += currentBet;
+      } else if (playerVal < dealerVal) {
+        result = '딜러 승!';
+        playerChips -= currentBet;
+      } else {
+        result = '무승부!';
+        // 칩 변화 없음
+      }
+
+      document.getElementById("result").textContent = result;
+      updateChipsDisplay();
+    }
+  </script>
+</body>
+</html>
